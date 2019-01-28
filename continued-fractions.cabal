@@ -39,6 +39,6 @@ test-suite continued-fractions-test
                         continued-fractions,
                         test-framework,
                         test-framework-quickcheck2,
-                        QuickCheck >= 2
+                        QuickCheck >= 2.10
   other-modules:        Math.CFTests
   default-language:     Haskell2010
