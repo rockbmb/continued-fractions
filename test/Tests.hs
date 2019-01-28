@@ -3,7 +3,7 @@ module Main where
 
 import Test.Framework (defaultMain)
 
-import CFTests (cfTests)
+import Math.CFTests (cfTests)
 
+main :: IO ()
 main = defaultMain cfTests
-
