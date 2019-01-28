@@ -18,6 +18,7 @@ description:            A type and some functions for manipulating and
 
 tested-with:            GHC==8.0.2, GHC==8.2.2, GHC==8.4.3, GHC==8.6.1
 extra-source-files:     CHANGES.md
+                        README.md
 
 source-repository head
   type:                 git
