@@ -5,9 +5,9 @@ stability:              provisional
 cabal-version:          >= 1.10
 build-type:             Simple
 
-author:                 James Cook <mokus AT deepbondi dot net>
-maintainer:             James Cook <mokus AT deepbondi dot net>,
-                        Alexandre Rodrigues Baldé <alexandrer_b AT outlook dot com>
+author:                 James Cook <mokus ΑT deepbondi dot net>
+maintainer:             James Cook <mokus ΑT deepbondi dot net>,
+                        Alexandre Rodrigues Baldé <alexandrer_b ΑT outlook dot com>
 license:                PublicDomain
 homepage:               https://github.com/rockbmb/continued-fractions
 bug-reports:            https://github.com/rockbmb/continued-fractions/issues

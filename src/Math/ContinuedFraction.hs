@@ -199,15 +199,15 @@ oddCF = snd . partitionCF
 -- |Evaluate the convergents of a continued fraction using the fundamental
 -- recurrence formula:
 -- 
--- A0 = b0, B0 = 1
+-- @A0 = b0, B0 = 1@
 --
--- A1 = b1b0 + a1,  B1 = b1
+-- @A1 = b1b0 + a1,  B1 = b1@
 -- 
--- A{n+1} = b{n+1}An + a{n+1}A{n-1}
+-- @A{n+1} = b{n+1}An + a{n+1}A{n-1}@
 --
--- B{n+1} = b{n+1}Bn + a{n+1}B{n-1}
+-- @B{n+1} = b{n+1}Bn + a{n+1}B{n-1}@
 --
--- The convergents are then Xn = An/Bn
+-- The convergents are then @Xn = An/Bn@
 convergents :: (Fractional a, Eq a) => CF a -> [a]
 convergents orig = drop 1 (zipWith (/) nums denoms)
     where
@@ -219,17 +219,17 @@ convergents orig = drop 1 (zipWith (/) nums denoms)
 -- Only valid if the denominator in the following recurrence for D_i never 
 -- goes to zero.  If this method blows up, try 'modifiedLentz'.
 --
--- D1 = 1/b1
+-- @D1 = 1/b1@
 -- 
--- D{i} = 1 / (b{i} + a{i} * D{i-1})
+-- @D{i} = 1 / (b{i} + a{i} * D{i-1})@
 -- 
--- dx1 = a1 / b1
+-- @dx1 = a1 / b1@
 -- 
--- dx{i} = (b{i} * D{i} - 1) * dx{i-1}
+-- @dx{i} = (b{i} * D{i} - 1) * dx{i-1}@
 -- 
--- x0 = b0
+-- @x0 = b0@
 -- 
--- x{i} = x{i-1} + dx{i}
+-- @x{i} = x{i-1} + dx{i}@
 -- 
 -- The convergents are given by @scanl (+) b0 dxs@
 steed :: (Fractional a, Eq a) => CF a -> [a]
@@ -249,13 +249,13 @@ steed orig
 -- Only valid if the denominators in the following recurrence never go to
 -- zero.  If this method blows up, try 'modifiedLentz'.
 --
--- C1 = b1 + a1 / b0
+-- @C1 = b1 + a1 / b0@
 --
--- D1 = 1/b1
+-- @D1 = 1/b1@
 -- 
--- C{n} = b{n} + a{n} / C{n-1}
+-- @C{n} = b{n} + a{n} / C{n-1}@
 -- 
--- D{n} = 1 / (b{n} + a{n} * D{n-1})
+-- @D{n} = 1 / (b{n} + a{n} * D{n-1})@
 -- 
 -- The convergents are given by @scanl (*) b0 (zipWith (*) cs ds)@
 lentz :: (Fractional a, Eq a) => CF a -> [a]
