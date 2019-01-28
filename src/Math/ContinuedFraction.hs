@@ -1,8 +1,10 @@
+{-# LANGUAGE CPP              #-}
 {-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE CPP #-}
+
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 702
 {-# LANGUAGE Safe #-}
 #endif
+
 module Math.ContinuedFraction
     ( CF
     , cf, gcf
@@ -27,7 +29,7 @@ module Math.ContinuedFraction
     ) where
 
 import Control.Arrow ((***))
-import Data.List (tails, mapAccumL)
+import Data.List     (tails)
 
 -- * The 'CF' type and basic operations
 
@@ -44,10 +46,10 @@ import Data.List (tails, mapAccumL)
 -- > data CF a
 -- >     = CFInfinity           -- eval CFInfinity     = ∞
 -- >     | CFCont a a (CF a)    -- eval (CFCont p q x) = p + q / eval x
--- 
+--
 
 -- |A continued fraction.  Constructed by 'cf' or 'gcf'.
-data CF a 
+data CF a
     = CF a [a]
     -- ^ Not exported. See 'cf', the public constructor.
     | GCF a [(a,a)]
@@ -85,23 +87,23 @@ instance Show a => Show (CF a) where
         )
 
 instance Functor CF where
-    fmap f (CF  b0 cf)  = CF  (f b0) (map f cf)
-    fmap f (GCF b0 gcf) = GCF (f b0) (map (f *** f) gcf)
+    fmap f (CF  b0 cf')  = CF  (f b0) (map f cf')
+    fmap f (GCF b0 gcf') = GCF (f b0) (map (f *** f) gcf')
 
 -- |Extract the partial denominators of a 'CF', normalizing it if necessary so 
 -- that all the partial numerators are 1.
 asCF  :: Fractional a => CF a -> (a, [a])
-asCF (CF  b0 cf) = (b0, cf)
+asCF (CF  b0 cf') = (b0, cf')
 asCF (GCF b0 []) = (b0, [])
-asCF (GCF b0 cf) = (b0, zipWith (*) bs cs)
+asCF (GCF b0 cf') = (b0, zipWith (*) bs cs)
     where
-        (a:as, bs) = unzip cf
-        cs = recip a : [recip (a*c) | c <- cs | a <- as]
+        (a:as, bs) = unzip cf'
+        cs = recip a : [recip (a' * c) | c <- cs | a' <- as]
 
 -- |Extract all the partial numerators and partial denominators of a 'CF'.
 asGCF :: (Num a, Eq a) => CF a -> (a,[(a,a)])
-asGCF (CF  b0  cf) = (b0, [(1, b) | b <- cf])
-asGCF (GCF b0 gcf) = (b0, takeWhile ((/=0).fst) gcf)
+asGCF (CF  b0  cf') = (b0, [(1, b) | b <- cf'])
+asGCF (GCF b0 gcf') = (b0, takeWhile ((/=0).fst) gcf')
 
 -- |Truncate a 'CF' to the specified number of partial numerators and denominators.
 truncateCF :: Int -> CF a -> CF a
@@ -238,10 +240,10 @@ steed (GCF 0 ((a,b):rest)) = map (a /) (steed (GCF b rest))
 steed orig
     = scanl (+) b0 dxs
     where
-        (b0, (a1,b1):gcf) = asGCF orig
+        (b0, (a1,b1):gcf') = asGCF orig
         
-        dxs = a1/b1 : [(b * d - 1) * dx  | (a,b) <- gcf | d <- ds | dx <- dxs]
-        ds  =  1/b1 : [recip (b + a * d) | (a,b) <- gcf | d <- ds]
+        dxs = a1/b1 : [(b * d - 1) * dx  | (_,b) <- gcf' | d <- ds | dx <- dxs]
+        ds  =  1/b1 : [recip (b + a * d) | (a,b) <- gcf' | d <- ds]
 
 -- |Evaluate the convergents of a continued fraction using Lentz's method.
 -- Only valid if the denominators in the following recurrence never go to
@@ -290,7 +292,7 @@ lentz = lentzWith id (*) recip
 lentzWith :: (Fractional a, Eq a) => (a -> b) -> (b -> b -> b) -> (b -> b) -> CF a -> [b]
 lentzWith f op inv (CF  0 (  a  :rest)) = map inv              (lentzWith f op inv (CF  a rest))
 lentzWith f op inv (GCF 0 ((a,b):rest)) = map (op (f a) . inv) (lentzWith f op inv (GCF b rest))
-lentzWith f op inv c = scanl opF (f b0) (zipWith (*) cs ds)
+lentzWith f op _   c = scanl opF (f b0) (zipWith (*) cs ds)
    where
        opF x y = op x (f y)
        (b0, cs, ds) = lentzRecurrence c
@@ -327,7 +329,7 @@ modifiedLentz = modifiedLentzWith id (*) recip
 modifiedLentzWith :: (Fractional a, Eq a) => (a -> b) -> (b -> b -> b) -> (b -> b) -> a -> CF a -> [[b]]
 modifiedLentzWith f op inv z (CF  0 (  a  :rest)) = map (map             inv ) (modifiedLentzWith f op inv z (CF  a rest))
 modifiedLentzWith f op inv z (GCF 0 ((a,b):rest)) = map (map (op (f a) . inv)) (modifiedLentzWith f op inv z (GCF b rest))
-modifiedLentzWith f op inv z orig = separate (scanl opF (False, f b0) cds)
+modifiedLentzWith f op _   z orig = separate (scanl opF (False, f b0) cds)
     where
         (b0, cs, ds) = modifiedLentzRecurrence z orig
         cds = zipWith mult cs ds
@@ -339,7 +341,7 @@ modifiedLentzWith f op inv z orig = separate (scanl opF (False, f b0) cds)
         -- a new one every time it encounters (True,_).
         separate [] = []
         separate ((_,x):xs) = case break fst xs of
-            (xs, ys) -> (x:map snd xs) : separate ys
+            (xs', ys) -> (x:map snd xs') : separate ys
 
 -- precondition: b0 /= 0
 modifiedLentzRecurrence :: (Fractional a, Eq a) => a -> CF a -> (a,[(Bool, a)],[(Bool, a)])
@@ -368,4 +370,4 @@ modifiedLentzRecurrence z orig
 -- in the series.
 sumPartialProducts :: Num a => [a] -> CF a
 sumPartialProducts [] = cf 0 []
-sumPartialProducts (x:xs) = gcf 0 ((x,1):[(negate x, 1 + x) | x <- xs])
+sumPartialProducts (x:xs) = gcf 0 ((x, 1):[(negate x', 1 + x') | x' <- xs])
