@@ -6,13 +6,16 @@
 
 module Math.CFTests
     ( cfTests
+    , prop_modifiedLentzWith_log_sane
     ) where
 
-import Control.Applicative
-import Data.List
-import qualified Data.Set as S
 import Math.ContinuedFraction
-import Test.QuickCheck
+
+import Control.Applicative                  (liftA2)
+import Data.List                            (isPrefixOf, genericLength)
+import qualified Data.Set                   as S
+import Test.QuickCheck                      (Arbitrary (..), CoArbitrary (..),
+                                             NonNegative (..), Property, (==>))
 import Test.Framework                       (Test, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
@@ -188,8 +191,8 @@ prop_lentzWith_log_sane cF =
         
         (sX, x) ~= (sY, y)   
             = sX == sY 
-                && (absErr <= eps * max 1 n
-                || relErr  <= eps * max 1 n
+                && (absErr <= eps * max 1 n * 16
+                || relErr  <= eps * max 1 n * 16
                 || any isNaN [absErr, relErr])
             where
                 absErr = abs (x-y)
@@ -229,11 +232,10 @@ prop_modifiedLentzWith_log_sane cF =
         addSignLog (xS,xL) (yS,yL) = (xS*yS, xL+yL)
         negateSignLog (s,l) = (negate s, l)
         
-        (sX, x) ~= (sY, y)   
-            = sX == sY 
-                && (absErr <= eps * max 1 n * max 1 m
-                || relErr  <= eps * max 1 n * max 1 m
-                || any isNaN [absErr, relErr])
+        (sX, x) ~= (sY, y) = (sX == sY)
+            && (absErr <= eps * max 1 n * max 1 m
+            || relErr  <= eps * max 1 n * max 1 m
+            || any isNaN [absErr, relErr])
             where
                 absErr = abs (x-y)
                 relErr = absErr / max (abs x) (abs y)
