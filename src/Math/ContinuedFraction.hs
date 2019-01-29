@@ -313,11 +313,11 @@ lentzRecurrence orig
 -- |Evaluate the convergents of a continued fraction using Lentz's method,
 -- (see 'lentz') with the additional rule that if a denominator ever goes
 -- to zero, it will be replaced by a (very small) number of your choosing,
--- typically 1e-30 or so (this modification was proposed by Thompson and 
--- Barnett).  
+-- typically 1e-30 or so (this modification was proposed by Thompson and
+-- Barnett).
 -- 
--- Additionally splits the resulting list of convergents into sublists, 
--- starting a new list every time the \'modification\' is invoked.  
+-- Additionally splits the resulting list of convergents into sublists,
+-- starting a new list every time the \'modification\' is invoked.
 modifiedLentz :: (Fractional a, Eq a) => a -> CF a -> [[a]]
 modifiedLentz = modifiedLentzWith id (*) recip
 
