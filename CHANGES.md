@@ -1,3 +1,14 @@
+0.10.0.2
+=====
+* Update link Travis CI build information in README from `travis-ci.org` to
+  `travis-ci.com` because of [this recent change](https://blog.travis-ci.com/2018-05-02-open-source-projects-on-travis-ci-com-with-github-apps).
+
+0.10.0.1
+=====
+* Remove unqualified imports from test module.
+* Add README and CHANGES files to `extra-source-files` field in `.cabal` file.
+* Add `bug-reports` field to `.cabal` file.
+
 0.10.0.0
 =====
 
