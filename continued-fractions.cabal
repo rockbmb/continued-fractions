@@ -1,5 +1,5 @@
 name:                   continued-fractions
-version:                0.10.0.1
+version:                0.10.0.2
 stability:              provisional
 
 cabal-version:          >= 1.10

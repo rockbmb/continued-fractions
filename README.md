@@ -1,7 +1,7 @@
 Continued Fractions
 =========
 
-[![Build Status](https://travis-ci.org/rockbmb/continued-fractions.svg)](https://travis-ci.org/rockbmb/continued-fractions)
+[![Build Status](https://travis-ci.com/rockbmb/continued-fractions.svg)](https://travis-ci.com/rockbmb/continued-fractions)
 
 `continued-fractions` is a Haskell library for manipulating and evaluating continued
 fractions.
