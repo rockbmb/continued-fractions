@@ -1,4 +1,5 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE ParallelListComp #-}
 
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- Orphan instance are disabled because of @Arbitrary/CoArbitrary@ instances for @CF@.
@@ -12,17 +13,17 @@ module Math.CFTests
 import Math.ContinuedFraction
 
 import Control.Applicative                  (liftA2)
-import Data.List                            (isPrefixOf, genericLength)
+import Data.List                            (isPrefixOf, genericLength, zip4)
 import qualified Data.Set                   as S
 import Test.QuickCheck                      (Arbitrary (..), CoArbitrary (..),
-                                             NonNegative (..), Property, (==>))
+                                             NonNegative (..), NonZero (..), Property, (==>))
 import Test.Framework                       (Test, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
 default (Integer, Rational, Double)
 
 eps :: Double
-eps = 2.220446049250313e-16
+eps = 1.0e-14
 
 instance Arbitrary a => Arbitrary (CF a) where
     arbitrary = do
@@ -35,6 +36,51 @@ instance (CoArbitrary a, Num a, Eq a) => CoArbitrary (CF a) where
     coarbitrary cF = coarbitrary b0 . coarbitrary terms
         where
             (b0, terms) = asGCF cF
+
+allPartialDenomsNonZero :: (Fractional a, Eq a) => CF a -> Bool
+allPartialDenomsNonZero orig = all (/=0) $ map snd terms
+    where
+        (_, terms) = asGCF orig
+
+atLeastOneBTermNonZero :: (Fractional a, Eq a) => CF a -> Bool
+atLeastOneBTermNonZero orig = any (/=0) $ (b0 : map snd terms)
+    where
+        (b0, terms) = asGCF orig
+
+allPartialNumsNonZero :: (Fractional a, Eq a) => CF a -> Bool
+allPartialNumsNonZero orig = all (/=0) $ map fst terms
+    where
+        (_, terms) = asGCF orig
+
+allLentzTermsNonZero :: (Fractional a, Num a, Eq a) => CF a -> Bool
+allLentzTermsNonZero orig = b0 /= 0 && all (/=0) cs && all (/=0) is
+    where
+        (b0, terms) = asGCF orig
+        
+        cs = [ b + a/c  | (a,b) <- terms | c <- b0 : cs]
+        is = case terms of 
+               []             -> []
+               (_, b1) : rest -> b1 : [ b + a*(1/i) | (a,b) <- rest | i <- is ]
+
+newtype ValidContinuantsCF a = ValidContinuantsCF (CF a)
+  deriving (Show)
+
+instance (Arbitrary a, Num a, Eq a, Fractional a) => Arbitrary (ValidContinuantsCF a) where
+    arbitrary = do
+        b0 <- arbitrary
+        pairvals <- arbitrary
+        let (nzas, nzcontdenoms) = unzip pairvals 
+            as = map getNonZero nzas
+            contdenoms = map getNonZero nzcontdenoms
+            n = length contdenoms
+            inputs = zip4 as contdenoms (take n (1:contdenoms)) (take n (0:1:contdenoms))
+            bs = map calcBs inputs
+            val = gcf b0 $ zip as bs
+        mode <- arbitrary
+        if mode
+            then return (ValidContinuantsCF . uncurry cf . asCF $ val)
+            else return $ ValidContinuantsCF val
+        where calcBs (a, denom, denom1, denom2) = (denom - a * denom2) / denom1   
 
 cfTests :: [Test]
 cfTests =
@@ -61,15 +107,20 @@ asCF_tests =
     [ testProperty "preserves convergents" prop_asCF_preserves_convergents
     ]
 
-prop_asCF_preserves_convergents :: (Eq a, Fractional a) => CF a -> Bool
-prop_asCF_preserves_convergents orig = convergents orig == convergents new
+prop_asCF_preserves_convergents :: (Eq a, Fractional a) => ValidContinuantsCF a -> Bool
+prop_asCF_preserves_convergents (ValidContinuantsCF orig) = convergents orig == convergents new
     where
         new = uncurry cf (asCF orig)
 
 asGCF_tests :: [Test]
 asGCF_tests =
-    [ testProperty "preserves convergents" prop_asCF_preserves_convergents
+    [ testProperty "preserves convergents" prop_asGCF_preserves_convergents
     ]
+
+prop_asGCF_preserves_convergents :: (Eq a, Fractional a) => ValidContinuantsCF a -> Bool
+prop_asGCF_preserves_convergents (ValidContinuantsCF orig) = convergents orig == convergents new
+    where
+        new = uncurry gcf (asGCF orig)
 
 truncateCF_tests :: [Test]
 truncateCF_tests =
@@ -77,8 +128,8 @@ truncateCF_tests =
     ]
 
 prop_truncateCF_truncates_convergents
-    :: (Eq a, Fractional a) => CF a -> NonNegative Int -> Bool
-prop_truncateCF_truncates_convergents orig (NonNegative n) = convergents truncated `isPrefixOf` convergents orig
+    :: (Eq a, Fractional a) => ValidContinuantsCF a -> NonNegative Int -> Bool
+prop_truncateCF_truncates_convergents (ValidContinuantsCF orig) (NonNegative n) = convergents truncated `isPrefixOf` convergents orig
     where
         truncated = truncateCF n orig
 
@@ -87,9 +138,10 @@ partitionCF_tests =
     [ testProperty "preserves convergents" prop_partitionCF_preserves_convergents
     ]
 
-prop_partitionCF_preserves_convergents :: (Ord a, Fractional a) => CF a -> Property
-prop_partitionCF_preserves_convergents cF =
+prop_partitionCF_preserves_convergents :: (Ord a, Fractional a) => ValidContinuantsCF a -> Property
+prop_partitionCF_preserves_convergents (ValidContinuantsCF cF) =
     length (snd (asGCF cF)) > 1
+    ==> allPartialDenomsNonZero cF
     ==> (origConvergents == S.union evenConvergents oddConvergents)
     where
         origConvergents = S.fromList $ convergents cF
@@ -103,8 +155,10 @@ evenCF_tests =
     [ testProperty "preserves last convergent" prop_evenCF_preserves_last_convergent
     ]
 
-prop_evenCF_preserves_last_convergent :: (Fractional a, Eq a) => CF a -> Bool
-prop_evenCF_preserves_last_convergent orig = origResult == evenResult
+prop_evenCF_preserves_last_convergent :: (Fractional a, Eq a) => ValidContinuantsCF a -> Property
+prop_evenCF_preserves_last_convergent (ValidContinuantsCF orig) =
+    allPartialDenomsNonZero orig
+    ==> origResult == evenResult
     where
         origResult = last $ convergents orig
         evenResult = last $ convergents (evenCF orig)
@@ -114,8 +168,10 @@ oddCF_tests =
     [ testProperty "preserves last convergent" prop_oddCF_preserves_last_convergent
     ]
 
-prop_oddCF_preserves_last_convergent :: (Fractional a, Eq a) => CF a -> Bool
-prop_oddCF_preserves_last_convergent orig = origResult == oddResult
+prop_oddCF_preserves_last_convergent :: (Fractional a, Eq a) => ValidContinuantsCF a -> Property
+prop_oddCF_preserves_last_convergent (ValidContinuantsCF orig) =
+    allPartialDenomsNonZero orig
+    ==> origResult == oddResult
     where
         origResult = last $ convergents orig
         oddResult  = last $ convergents (oddCF orig)
@@ -125,30 +181,38 @@ equiv_tests =
     [ testProperty "preserves convergents" prop_equiv_preserves_convergents
     ]
 
-prop_equiv_preserves_convergents :: (Fractional a, Eq a) => [a] -> CF a -> Bool
-prop_equiv_preserves_convergents cs orig = convergents orig == convergents new
+prop_equiv_preserves_convergents :: (Fractional a, Eq a) => [NonZero a] -> ValidContinuantsCF a -> Bool
+prop_equiv_preserves_convergents cs (ValidContinuantsCF orig) =
+    convergents orig == convergents new
     where
-        new = equiv cs orig
+        new = equiv cs' orig
+        cs' = map getNonZero cs
 
 setDenominators_tests :: [Test]
 setDenominators_tests =
     [ testProperty "preserves convergents" prop_setDenominators_preserves_convergents
     ]
 
-prop_setDenominators_preserves_convergents :: (Fractional a, Eq a) => [a] -> CF a -> Bool
-prop_setDenominators_preserves_convergents denoms orig = convergents orig == convergents new
+prop_setDenominators_preserves_convergents :: (Fractional a, Eq a) => [NonZero a] -> ValidContinuantsCF a -> Property
+prop_setDenominators_preserves_convergents denoms (ValidContinuantsCF orig) =
+    allPartialDenomsNonZero orig
+    ==> convergents orig == convergents new
     where
-        new = setDenominators denoms orig
+        new = setDenominators denoms' orig
+        denoms' = map getNonZero denoms
 
 setNumerators_tests :: [Test]
 setNumerators_tests =
     [ testProperty "preserves convergents" prop_setNumerators_preserves_convergents
     ]
 
-prop_setNumerators_preserves_convergents :: (Fractional a, Eq a) => [a] -> CF a -> Bool
-prop_setNumerators_preserves_convergents nums orig = convergents orig == convergents new
+prop_setNumerators_preserves_convergents :: (Fractional a, Eq a) => [NonZero a] -> ValidContinuantsCF a -> Property
+prop_setNumerators_preserves_convergents nums (ValidContinuantsCF orig) =
+    allPartialNumsNonZero orig
+    ==> convergents orig == convergents new
     where
-        new = setNumerators nums orig
+        new = setNumerators nums' orig
+        nums' = map getNonZero nums
 
 convergents_tests :: [Test]
 convergents_tests =
@@ -183,11 +247,11 @@ lentzWith_tests =
 prop_lentzWith_not_null :: CF Rational -> Bool
 prop_lentzWith_not_null = not . null . lentzWith id (*) (1/)
 
-prop_lentzWith_log_sane :: CF Double -> Bool
+prop_lentzWith_log_sane :: CF Double -> Property
 prop_lentzWith_log_sane cF =
     let signLog x = (signum x, log (abs x))
         addSignLog (xS,xL) (yS,yL) = (xS*yS, xL+yL)
-        negateSignLog (s,l) = (negate s, l)
+        negateSignLog (s,l) = (s, negate l)
         
         (sX, x) ~= (sY, y)   
             = sX == sY 
@@ -201,7 +265,7 @@ prop_lentzWith_log_sane cF =
         n = genericLength a
         a = map signLog (lentz cF)
         b = lentzWith signLog addSignLog negateSignLog cF
-     in and (zipWith (~=) a b)
+     in allLentzTermsNonZero cF ==> and (zipWith (~=) a b)
 
 modifiedLentz_tests :: [Test]
 modifiedLentz_tests =
@@ -226,11 +290,11 @@ modifiedLentzWith_tests =
     [ testProperty "sanity test with log"   prop_modifiedLentzWith_log_sane
     ]
 
-prop_modifiedLentzWith_log_sane :: CF Double -> Bool
+prop_modifiedLentzWith_log_sane :: CF Double -> Property
 prop_modifiedLentzWith_log_sane cF =
     let signLog x = (signum x, log (abs x))
         addSignLog (xS,xL) (yS,yL) = (xS*yS, xL+yL)
-        negateSignLog (s,l) = (negate s, l)
+        negateSignLog (s,l) = (s, negate l)
         
         (sX, x) ~= (sY, y) = (sX == sY)
             && (absErr <= eps * max 1 n * max 1 m
@@ -244,7 +308,7 @@ prop_modifiedLentzWith_log_sane cF =
         n = genericLength a; m = genericLength (concat a)
         a = map (map signLog) (modifiedLentz tiny cF)
         b = modifiedLentzWith signLog addSignLog negateSignLog tiny cF
-     in and (zipWith (~=) (concat a) (concat b))
+     in atLeastOneBTermNonZero cF ==> and (zipWith (~=) (concat a) (concat b))
 
 sumPartialProducts_tests :: [Test]
 sumPartialProducts_tests =
@@ -254,4 +318,5 @@ sumPartialProducts_tests =
 
 prop_sumPartialProducts_preserves_partial_sums :: (Eq a, Fractional a) => [a] -> Bool
 prop_sumPartialProducts_preserves_partial_sums xs =
-    scanl (+) 0 (tail $ scanl (*) 1 xs) == convergents (sumPartialProducts xs)
+    scanl (+) 0 (tail $ scanl (*) 1 xs') == convergents (sumPartialProducts xs)
+    where xs' = takeWhile (/=0) xs
